@@ -36,33 +36,51 @@ def get_weather(api_key, coordinates):
         print(f"Error making Weather API call: {e}")
         return None
 
+def send_weather_to_telegram(api_key, chat_id, city, weather_data):
+    try:
+        telegram_bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
+        bot_api_url = f"https://api.telegram.org/bot{telegram_bot_token}/sendMessage"
+        
+        message = f"Weather in {city} (id={weather_data['id']})\n" \
+                  f"Weather: {weather_data['weather'][0]['main']}\n" \
+                  f"Description: {weather_data['weather'][0]['description']}\n" \
+                  f"Temperature: {weather_data['main']['temp']} °C\n" \
+                  f"Pressure: {weather_data['main']['pressure']} hPa\n" \
+                  f"Wind Speed: {weather_data['wind']['speed']} m/s\n" \
+                  f"Wind Direction: {weather_data['wind']['deg']} degrees\n" \
+                  f"Visibility: {weather_data['visibility']} meters"
+        
+        params = {
+            'chat_id': chat_id,
+            'text': message,
+        }
+
+        response = requests.post(bot_api_url, params=params)
+
+        if response.status_code == 200:
+            print("Weather data sent to Telegram.")
+        else:
+            print(f"Error sending message to Telegram. Status code: {response.status_code}")
+    except Exception as e:
+        print(f"Error sending message to Telegram: {e}")
+
 if __name__ == "__main__":
-    # Get API key, country code, and city from environment variables
     api_key = os.getenv("WEATHER_API_KEY")
     country_code = os.getenv("WEATHER_COUNTRY_CODE")
     city = os.getenv("WEATHER_CITY")
+    telegram_chat_id = os.getenv("TELEGRAM_CHAT_ID")
 
-    if not all([api_key, country_code, city]):
-        print("Please set WEATHER_API_KEY, WEATHER_COUNTRY_CODE, and WEATHER_CITY environment variables.")
+    if not all([api_key, country_code, city, telegram_chat_id]):
+        print("Please set WEATHER_API_KEY, WEATHER_COUNTRY_CODE, WEATHER_CITY, and TELEGRAM_CHAT_ID environment variables.")
     else:
-        # Get coordinates from Geo API
         coordinates = get_coordinates(api_key, city, country_code)
 
         if coordinates:
-            # Get weather data using coordinates
             weather_data = get_weather(api_key, coordinates)
 
             if weather_data:
-                # Extract and print specific fields from the weather data
-                print("Weather Information:")
-                print(f"Weather: {weather_data['weather'][0]['main']}")
-                print(f"Description: {weather_data['weather'][0]['description']}")
-                print(f"Temperature: {weather_data['main']['temp']} °C")
-                print(f"Pressure: {weather_data['main']['pressure']} hPa")
-                print(f"Visibility: {weather_data.get('visibility', 'N/A')} meters")
-                print(f"Wind Speed: {weather_data['wind']['speed']} m/s")
-                print(f"Wind Direction: {weather_data['wind']['deg']} degrees")
-                print(f"City ID: {weather_data['id']}")
-                print(f"City Name: {weather_data['name']}")
+                send_weather_to_telegram(api_key, telegram_chat_id, city, weather_data)
             else:
                 print("Error getting weather information.")
+        else:
+            print("Error getting coordinates.")
